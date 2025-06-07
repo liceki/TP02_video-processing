@@ -99,41 +99,39 @@ public class VideoProcessing {
         escritor.release(); //limpando o buffer 
     }
 
-
-
-
-
     public static void main(String[] args) {
 
         String caminhoVideo = "src/main/videos/video5.mp4";
-        String caminhoGravar = "src/main/videos/video-pos-media-mediana.mp4";
+        String caminhoGravar = "src/main/videos/video-pos.mp4";
         double fps = 24.0; //isso deve mudar se for outro vídeo (avaliar metadados ???)
 
-        System.out.println("Carregando o vídeo... " + caminhoVideo);
+        System.out.println("Carregando o vídeo do diretório: " + caminhoVideo);
         byte video[][][] = carregarVideo(caminhoVideo);
 
-        System.out.printf("Frames: %d   Resolução: %d x %d \n",
+        System.out.printf("Nº de Frames: %d   Resolução: %d x %d \n",
                 video.length, video[0][0].length, video[0].length);
 
 
-        System.out.println("processamento remove ruído 1");
+        long inicio = System.currentTimeMillis();
+        System.out.println("Processamento Salt and Pepper: ");
         video = removerSalPimenta(video, 1); //voce deve implementar esta funcao
+        long fim = System.currentTimeMillis();
+        System.out.println("Tempo de execução: " + (fim - inicio));
 
-
-
-
-        System.out.println("processamento remove ruído 2");
-        //removerBorroesTempo(video); //voce deve implementar esta funcao
+        inicio = System.currentTimeMillis();
+        System.out.println("Processamento Remove Borrões Temporários");
+        removerBorroesTempo(video); //voce deve implementar esta funcao
+        fim = System.currentTimeMillis();
+        System.out.println("Tempo de execução: " + (fim - inicio));
 
         System.out.println("Salvando...  " + caminhoGravar);
         gravarVideo(video, caminhoGravar, fps);
         System.out.println("Término do processamento");
     }
 
-
-
-
-
+    private static void removerBorroesTempo(byte[][][] video) {
+        //
+    }
 
 
     private static byte[][][] removerSalPimenta(byte[][][] video, int intensidade) {
@@ -163,7 +161,8 @@ public class VideoProcessing {
                 resto--;
             }
             p = new Piao(video, videoPosSalPimenta,
-                    numFramesDespachados, (numFramesDespachados + n), intensidade);
+                    numFramesDespachados, (numFramesDespachados + n), intensidade,
+                    TipoDeCalculo.MEDIA, TipoDeCalculo.MEDIANA);
             numFramesDespachados += n; // 62 124 186
             p.start();
             piaos.add(p);
@@ -181,4 +180,6 @@ public class VideoProcessing {
         return videoPosSalPimenta;
 
     }
+
+
 }

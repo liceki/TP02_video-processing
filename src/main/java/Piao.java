@@ -41,7 +41,6 @@ public class Piao extends Thread {
                 byte[][] frame = frames[indiceFrame];
 
 
-
                 switch (tipoDeCalculoSalPimenta) {
                     case MEDIA -> salPimentaMedia(frame, indiceFrame);
 //                    case MEDIANA -> salPimentaMediana(frame, indiceFrame);
@@ -60,8 +59,8 @@ public class Piao extends Thread {
         larguraMascaraSalPimenta = 3;
         alturaMascaraSalPimenta = 3;
         // ex: mascara 5x5
-        int metadeLargura = larguraMascaraSalPimenta/2; // -> 2
-        int metadeAltura = alturaMascaraSalPimenta/2; // -> 2
+        int metadeLargura = larguraMascaraSalPimenta / 2; // -> 2
+        int metadeAltura = alturaMascaraSalPimenta / 2; // -> 2
 
         // passa por todos os pixels -> ex: mat[20][20]
         for (int i = metadeLargura; i < frame.length - metadeLargura; i++) {
@@ -103,27 +102,44 @@ public class Piao extends Thread {
 
     private void removerBorroesTempo() {
 
-        int janelaTemporalFrames = 1;
+        // if limiteInferior = 0 -> logica diferente -> PRIMEIRA THREAD
+        // if limiteSuperior = frames.length-1 -> lógica diferente -> ULTIMA THREAD
 
-        for (int f = limiteInferior + janelaTemporalFrames; f < limiteSuperior - janelaTemporalFrames; f++) {
+        // if(limiteInferior+deslocamento < limiteInfeior){
+//            frames[limiteInferior+deslocamento]
+//        }
 
-            byte [][] frameAtual = frames[f];
-            int altura = frameAtual.length;
-            int largura = frameAtual[0].length;
+        int janelaTemporalFrames = 2;
 
-            for (int i = 0; i < largura; i++) {
-                for (int j = 0; j < altura; j++) {
+        int primeiroFrame = limiteInferior != 0 ? limiteInferior : limiteInferior + janelaTemporalFrames;
+        System.out.println(limiteSuperior);
+        int ultimoFrame = limiteSuperior <= frames.length - janelaTemporalFrames ? limiteSuperior : limiteSuperior - janelaTemporalFrames;
+
+        for (int indiceFrame = primeiroFrame; indiceFrame < ultimoFrame; indiceFrame++) {
+
+            byte[][] frameAtual = frames[indiceFrame];
+            int altura = frameAtual.length;      // 720
+            int largura = frameAtual[0].length;  // 960
+
+
+            for (int indicePixelAltura = 0; indicePixelAltura < altura; indicePixelAltura++) {   // 0 -> 720
+                for (int indicePixelLargura = 0; indicePixelLargura < largura; indicePixelLargura++) { // 0 -> 960, 720 vezes
 
                     int[] valoresTemporais = new int[(2 * janelaTemporalFrames + 1)];
                     int index = 0;
 
                     for (int deslocamento = -janelaTemporalFrames; deslocamento <= janelaTemporalFrames; deslocamento++) {
-                        valoresTemporais[index++] = frames[f + deslocamento][i][j] & 0xFF;
+                        valoresTemporais[index] = frames[indiceFrame + deslocamento][indicePixelAltura][indicePixelLargura] & 0xFF;
+
+
+                        index++;
                     }
 
                     Arrays.sort(valoresTemporais);
-                    int mediana = valoresTemporais[valoresTemporais.length/2];
-                    videoPosProcessamento[f][i][j] = (byte) mediana;
+                    int mediana = valoresTemporais[valoresTemporais.length / 2];
+                    videoPosProcessamento[indiceFrame][indicePixelAltura][indicePixelLargura] = (byte) mediana;
+                    // indicePixelAltura -> indice da linha
+                    // indicePixelLargura -> indice da coluna
                 }
             }
         }

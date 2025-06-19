@@ -1,7 +1,6 @@
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -100,6 +99,7 @@ public class VideoProcessing {
     }
 
     public static void main(String[] args) {
+        byte[][][] videoProcessado = null;
 
         String caminhoVideo = "src/main/videos/video5.mp4";
         String caminhoGravar = "src/main/videos/video-pos.mp4";
@@ -113,28 +113,23 @@ public class VideoProcessing {
 
 
         long inicio = System.currentTimeMillis();
-        System.out.println("Processamento Salt and Pepper: ");
-        video = removerSalPimenta(video, 1); //voce deve implementar esta funcao
+        videoProcessado = processarVideo(video, 1);
         long fim = System.currentTimeMillis();
         System.out.println("Tempo de execução: " + (fim - inicio));
 
         inicio = System.currentTimeMillis();
-        System.out.println("Processamento Remove Borrões Temporários");
-        removerBorroesTempo(video); //voce deve implementar esta funcao
+        videoProcessado = processarVideo(video, 2);
         fim = System.currentTimeMillis();
         System.out.println("Tempo de execução: " + (fim - inicio));
+
 
         System.out.println("Salvando...  " + caminhoGravar);
         gravarVideo(video, caminhoGravar, fps);
         System.out.println("Término do processamento");
     }
 
-    private static void removerBorroesTempo(byte[][][] video) {
-        //
-    }
 
-
-    private static byte[][][] removerSalPimenta(byte[][][] video, int intensidade) {
+    private static byte[][][] processarVideo(byte[][][] video, int numThreads) {
         //Thread: video, indexInicial, indexFinal
         //Intervalo = numFramesPorThread anterior até numFramesPorThread atual
 
@@ -143,42 +138,62 @@ public class VideoProcessing {
         //numFramesPorThread = 61
         //Resto = 3
 
-        int numThreads = 8;
-        int numFramesPorThread = video.length / numThreads;
-        int resto = video.length % numThreads;
-        int numFramesDespachados = 0;
-        Piao p;
-        List<Piao> piaos = new ArrayList<>();
-        byte[][][] videoPosSalPimenta = new byte[video.length][video[0].length][video[0][0].length];
-        int n;
-        intensidade = 25;
+        byte[][][] videoPosProcessamento = new byte[video.length][video[0].length][video[0][0].length];
+        final int intensidade = 1;
+        final int tamanhoLadoMascara = 3;
+        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIA;
+        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIA;
 
-        // loop que repassa as listas e informa quais frames deverão ser processados por cada thread
-        for (int i = 0; i < numThreads; i++) {
-            n = numFramesPorThread;
-            if (resto > 0) {
-                n++;
-                resto--;
-            }
-            p = new Piao(video, videoPosSalPimenta,
-                    numFramesDespachados, (numFramesDespachados + n), intensidade,
-                    TipoDeCalculo.MEDIA, TipoDeCalculo.MEDIANA);
-            numFramesDespachados += n; // 62 124 186
-            p.start();
-            piaos.add(p);
+        VideoASerProcessadoDTO videoASerProcessadoDTO = VideoASerProcessadoDTO.builder()
+                .videoPreProcessamento(video)
+                .videoPosProcessamento(videoPosProcessamento)
+                .intensidadeSalPimenta(intensidade)
+                .tamanhoLadoMascara(tamanhoLadoMascara)
+                .tipoDeCalculoSalPimenta(tipoDeCalculoSalPimenta)
+                .tipoDeCalculoBorrao(tipoDeCalculoBorrao)
+                .build();
+
+        if (numThreads == 1) {
+            videoASerProcessadoDTO.setLimiteInferior(0);
+            videoASerProcessadoDTO.setLimiteSuperior(video.length);
+            return ProcessarVideo.processarVideo(videoASerProcessadoDTO);
         }
 
-        for(Piao piao: piaos){
-            try {
-                System.out.println(piao.getQuantFrames());
-                piao.join();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
 
-        return videoPosSalPimenta;
+//        int numFramesPorThread = video.length / numThreads;
+//        int resto = video.length % numThreads;
+//        int numFramesDespachados = 0;
+//        Thread p;
+//        List<Thread> threads = new ArrayList<>();
+//
+//        int n;
+//
+//
+//        // loop que repassa as listas e informa quais frames deverão ser processados por cada thread
+//        for (int i = 0; i < numThreads; i++) {
+//            n = numFramesPorThread;
+//            if (resto > 0) {
+//                n++;
+//                resto--;
+//            }
+//            p = new Thread(video, videoPosSalPimenta,
+//                    numFramesDespachados, (numFramesDespachados + n), intensidade,
+//                    TipoDeCalculo.MEDIA, TipoDeCalculo.MEDIANA);
+//            numFramesDespachados += n; // 62 124 186
+//            p.start();
+//            threads.add(p);
+//        }
+//
+//        for(Thread thread : threads){
+//            try {
+//                System.out.println(thread.getQuantFrames());
+//                thread.join();
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
 
+        return null;
     }
 
 

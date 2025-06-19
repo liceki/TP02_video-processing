@@ -30,7 +30,9 @@ public class ProcessarVideo {
 
                         for (int x = -metadeLado; x <= metadeLado; x++) {
                             for (int y = -metadeLado; y <= metadeLado; y++) {
-                                vizinhos[index++] = framePreProcessado[j + x][i + y] & 0xFF;
+                                if (x != 0 || y != 0) {
+                                    vizinhos[index++] = framePreProcessado[i + y][j + x] & 0xFF;
+                                }
                             }
                         }
 

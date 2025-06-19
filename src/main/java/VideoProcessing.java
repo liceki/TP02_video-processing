@@ -117,10 +117,10 @@ public class VideoProcessing {
         long fim = System.currentTimeMillis();
         System.out.println("Tempo de execução: " + (fim - inicio));
 
-        inicio = System.currentTimeMillis();
-        videoProcessado = processarVideo(video, 2);
-        fim = System.currentTimeMillis();
-        System.out.println("Tempo de execução: " + (fim - inicio));
+//        inicio = System.currentTimeMillis();
+//        videoProcessado = processarVideo(video, 2);
+//        fim = System.currentTimeMillis();
+//        System.out.println("Tempo de execução: " + (fim - inicio));
 
 
         System.out.println("Salvando...  " + caminhoGravar);
@@ -130,13 +130,7 @@ public class VideoProcessing {
 
 
     private static byte[][][] processarVideo(byte[][][] video, int numThreads) {
-        //Thread: video, indexInicial, indexFinal
-        //Intervalo = numFramesPorThread anterior até numFramesPorThread atual
-
-        //video[247] 246 indices (do 0 ao 246)
-        //247 frames para 4 threads
-        //numFramesPorThread = 61
-        //Resto = 3
+        // definindo parametros de processamento
 
         byte[][][] videoPosProcessamento = new byte[video.length][video[0].length][video[0][0].length];
         final int intensidade = 1;
@@ -144,6 +138,7 @@ public class VideoProcessing {
         final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIA;
         final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIA;
 
+        // instanciando objeto com dados comnuns a ambas abordagens (sequencial ou paralela)
         VideoASerProcessadoDTO videoASerProcessadoDTO = VideoASerProcessadoDTO.builder()
                 .videoPreProcessamento(video)
                 .videoPosProcessamento(videoPosProcessamento)
@@ -153,12 +148,20 @@ public class VideoProcessing {
                 .tipoDeCalculoBorrao(tipoDeCalculoBorrao)
                 .build();
 
-        if (numThreads == 1) {
+        if (numThreads == 1) { //
             videoASerProcessadoDTO.setLimiteInferior(0);
             videoASerProcessadoDTO.setLimiteSuperior(video.length);
             return ProcessarVideo.processarVideo(videoASerProcessadoDTO);
         }
 
+
+        //Thread: video, indexInicial, indexFinal
+        //Intervalo = numFramesPorThread anterior até numFramesPorThread atual
+
+        //video[247] 246 indices (do 0 ao 246)
+        //247 frames para 4 threads
+        //numFramesPorThread = 61
+        //Resto = 3
 
 //        int numFramesPorThread = video.length / numThreads;
 //        int resto = video.length % numThreads;

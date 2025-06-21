@@ -12,10 +12,6 @@ public class Thread extends java.lang.Thread {
         VideoProcessingMethods.processarVideo(videoDTO);
     }
 
-
-
-
-
     public int getQuantFrames() {
         return videoDTO.getLimiteSuperior() - videoDTO.getLimiteInferior();
     }

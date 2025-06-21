@@ -1,4 +1,3 @@
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -99,10 +98,13 @@ public class VideoProcessing {
         escritor.release(); //limpando o buffer 
     }
 
+
     public static void main(String[] args) {
         byte[][][] videoProcessado = null;
+        System.out.println("Heap inicial (Xms): " + Runtime.getRuntime().totalMemory() / (1024 * 1024) + " MB");
+        System.out.println("Heap máximo  (Xmx): " + Runtime.getRuntime().maxMemory() / (1024 * 1024) + " MB");
 
-        String caminhoVideo = "src/main/videos/video5.mp4";
+        String caminhoVideo = "src/main/videos/video-cortado.mp4";
         String caminhoGravar = "src/main/videos/video-pos.mp4";
         double fps = 24.0; //isso deve mudar se for outro vídeo (avaliar metadados ???)
 
@@ -112,16 +114,19 @@ public class VideoProcessing {
         System.out.printf("Nº de Frames: %d   Resolução: %d x %d \n",
                 video.length, video[0][0].length, video[0].length);
 
+        System.out.println("\nIniciando Processamento!");
+        byte[][][] videoPosSalPimenta = new byte[video.length][video[0].length][video[0][0].length];
+        byte[][][] videoPosRemoverBorroes = new byte[video.length][video[0].length][video[0][0].length];
 
-        long inicio = System.currentTimeMillis();
-        videoProcessado = processarVideo(video, 4);
-        long fim = System.currentTimeMillis();
-        System.out.println("Tempo de execução: " + (fim - inicio));
+        for (int numThreads = 1; numThreads <= 32 ; numThreads*=2) {
+            System.out.println("Execução com " + numThreads + " thread(s)");
+            long inicio = System.currentTimeMillis();
+            videoProcessado = processarVideo(video, numThreads, videoPosSalPimenta, videoPosRemoverBorroes);
+            long fim = System.currentTimeMillis();
+            System.out.println("Tempo de execução com " + numThreads + " Thread(s): " + (fim - inicio));
+            System.out.println("--------------------------\n");
+        }
 
-//        inicio = System.currentTimeMillis();
-//        videoProcessado = processarVideo(video, 2);
-//        fim = System.currentTimeMillis();
-//        System.out.println("Tempo de execução: " + (fim - inicio));
 
         if (videoProcessado == null) return;
         System.out.println("Salvando...  " + caminhoGravar);
@@ -131,17 +136,17 @@ public class VideoProcessing {
 
 
 
-    private static byte[][][] processarVideo(byte[][][] video, int numThreads) {
+    private static byte[][][] processarVideo(byte[][][] video, int numThreads, byte[][][] videoPosSalPimenta, byte[][][] videoPosRemoverBorroes) {
         // definindo parametros de processamento
 
         final int tamanhoLadoMascara = 3;
-        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIANA;
-        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIANA;
+        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIA;
+        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIA;
 
         // instanciando objeto com dados comnuns a ambas abordagens (sequencial ou paralela)
         VideoDTO videoDTO = new VideoDTO(video);
-        videoDTO.setVideoPosSalPimenta(new byte[video.length][video[0].length][video[0][0].length]);
-        videoDTO.setVideoPosCorrecaoBorroes(new byte[video.length][video[0].length][video[0][0].length]);
+        videoDTO.setVideoPosSalPimenta(videoPosSalPimenta);
+        videoDTO.setVideoPosCorrecaoBorroes(videoPosRemoverBorroes);
         videoDTO.setTamanhoLadoMascara(tamanhoLadoMascara);
         videoDTO.setTipoDeCalculoSalPimenta(tipoDeCalculoSalPimenta);
         videoDTO.setTipoDeCalculoBorrao(tipoDeCalculoBorrao);
@@ -171,7 +176,6 @@ public class VideoProcessing {
                 limiteSuperior,
                 numFramesAlocados;
 
-        System.out.println("Video length: " + video.length);
 
         // loop que repassa as listas e informa quais frames deverão ser processados por cada thread
         for (int i = 0; i < numThreads; i++) {
@@ -193,7 +197,6 @@ public class VideoProcessing {
         for (Thread t : threads) {
             try {
                 t.join();
-                System.out.println(t.getQuantFrames());
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }

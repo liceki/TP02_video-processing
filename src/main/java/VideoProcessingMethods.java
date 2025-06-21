@@ -3,12 +3,11 @@ import java.util.Arrays;
 public class VideoProcessingMethods {
 
     public static void processarVideo(VideoDTO videoASerProcessado) {
-        salPimenta(videoASerProcessado);
+        removerSalPimenta(videoASerProcessado);
         removerBorroesTempo(videoASerProcessado);
     }
 
-
-    private static void salPimenta(VideoDTO videoASerProcessado) {
+    private static void removerSalPimenta(VideoDTO videoASerProcessado) {
         for (int indiceFrame = videoASerProcessado.getLimiteInferior(); indiceFrame < videoASerProcessado.getLimiteSuperior(); indiceFrame++) {
 
             byte[][] frame = videoASerProcessado.getVideoPreProcessamento()[indiceFrame];
@@ -19,7 +18,7 @@ public class VideoProcessingMethods {
 
             TipoDeCalculo tipoDeCalculo = videoASerProcessado.getTipoDeCalculoSalPimenta();
 
-            // passa por todos os pixels
+            // Passa por todos os pixels
             for (int i = metadeLado; i < frame.length - metadeLado; i++) {
                 for (int j = metadeLado; j < frame[i].length - metadeLado; j++) {
 
@@ -50,7 +49,7 @@ public class VideoProcessingMethods {
         // if limiteInferior = 0 -> logica diferente -> PRIMEIRA THREAD
         // if limiteSuperior = frames.length-1 -> lógica diferente -> ULTIMA THREAD
 
-        int janelaTemporalFrames = 3,
+        int janelaTemporalFrames = 2,
                 limiteInferior = videoASerProcessado.getLimiteInferior(),
                 limiteSuperior = videoASerProcessado.getLimiteSuperior();
         byte[][][] video = videoASerProcessado.getVideoPosSalPimenta(),

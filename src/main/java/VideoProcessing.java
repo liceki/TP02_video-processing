@@ -1,5 +1,6 @@
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.opencv.core.CvType;
@@ -113,7 +114,7 @@ public class VideoProcessing {
 
 
         long inicio = System.currentTimeMillis();
-        videoProcessado = processarVideo(video, 1);
+        videoProcessado = processarVideo(video, 4);
         long fim = System.currentTimeMillis();
         System.out.println("Tempo de execução: " + (fim - inicio));
 
@@ -122,36 +123,35 @@ public class VideoProcessing {
 //        fim = System.currentTimeMillis();
 //        System.out.println("Tempo de execução: " + (fim - inicio));
 
-
+        if (videoProcessado == null) return;
         System.out.println("Salvando...  " + caminhoGravar);
-        gravarVideo(video, caminhoGravar, fps);
+        gravarVideo(videoProcessado, caminhoGravar, fps);
         System.out.println("Término do processamento");
     }
+
 
 
     private static byte[][][] processarVideo(byte[][][] video, int numThreads) {
         // definindo parametros de processamento
 
-        byte[][][] videoPosProcessamento = new byte[video.length][video[0].length][video[0][0].length];
-        final int intensidade = 1;
         final int tamanhoLadoMascara = 3;
-        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIA;
-        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIA;
+        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIANA;
+        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIANA;
 
         // instanciando objeto com dados comnuns a ambas abordagens (sequencial ou paralela)
-        VideoASerProcessadoDTO videoASerProcessadoDTO = VideoASerProcessadoDTO.builder()
-                .videoPreProcessamento(video)
-                .videoPosProcessamento(videoPosProcessamento)
-                .intensidadeSalPimenta(intensidade)
-                .tamanhoLadoMascara(tamanhoLadoMascara)
-                .tipoDeCalculoSalPimenta(tipoDeCalculoSalPimenta)
-                .tipoDeCalculoBorrao(tipoDeCalculoBorrao)
-                .build();
+        VideoDTO videoDTO = new VideoDTO(video);
+        videoDTO.setVideoPosSalPimenta(new byte[video.length][video[0].length][video[0][0].length]);
+        videoDTO.setVideoPosCorrecaoBorroes(new byte[video.length][video[0].length][video[0][0].length]);
+        videoDTO.setTamanhoLadoMascara(tamanhoLadoMascara);
+        videoDTO.setTipoDeCalculoSalPimenta(tipoDeCalculoSalPimenta);
+        videoDTO.setTipoDeCalculoBorrao(tipoDeCalculoBorrao);
 
+        // Execução sequencial
         if (numThreads == 1) { //
-            videoASerProcessadoDTO.setLimiteInferior(0);
-            videoASerProcessadoDTO.setLimiteSuperior(video.length);
-            return ProcessarVideo.processarVideo(videoASerProcessadoDTO);
+            videoDTO.setLimiteInferior(0);
+            videoDTO.setLimiteSuperior(video.length);
+            VideoProcessingMethods.processarVideo(videoDTO);
+            return videoDTO.getVideoPosCorrecaoBorroes();
         }
 
 
@@ -163,40 +163,42 @@ public class VideoProcessing {
         //numFramesPorThread = 61
         //Resto = 3
 
-//        int numFramesPorThread = video.length / numThreads;
-//        int resto = video.length % numThreads;
-//        int numFramesDespachados = 0;
-//        Thread p;
-//        List<Thread> threads = new ArrayList<>();
-//
-//        int n;
-//
-//
-//        // loop que repassa as listas e informa quais frames deverão ser processados por cada thread
-//        for (int i = 0; i < numThreads; i++) {
-//            n = numFramesPorThread;
-//            if (resto > 0) {
-//                n++;
-//                resto--;
-//            }
-//            p = new Thread(video, videoPosSalPimenta,
-//                    numFramesDespachados, (numFramesDespachados + n), intensidade,
-//                    TipoDeCalculo.MEDIA, TipoDeCalculo.MEDIANA);
-//            numFramesDespachados += n; // 62 124 186
-//            p.start();
-//            threads.add(p);
-//        }
-//
-//        for(Thread thread : threads){
-//            try {
-//                System.out.println(thread.getQuantFrames());
-//                thread.join();
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
+        Thread thread;
+        List<Thread> threads = new ArrayList<>();
+        int numFramesPorThread = video.length / numThreads,
+                resto = video.length % numThreads,
+                limiteInferior = 0,
+                limiteSuperior,
+                numFramesAlocados;
 
-        return null;
+        System.out.println("Video length: " + video.length);
+
+        // loop que repassa as listas e informa quais frames deverão ser processados por cada thread
+        for (int i = 0; i < numThreads; i++) {
+            numFramesAlocados = numFramesPorThread;
+            if (resto > 0) {
+                numFramesAlocados++;
+                resto--;
+            }
+            limiteSuperior = limiteInferior + numFramesAlocados;
+
+            thread = new Thread(new VideoDTO(videoDTO, limiteInferior, limiteSuperior));
+            limiteInferior = limiteSuperior; // 62 124 186
+
+            thread.start();
+            threads.add(thread);
+        }
+
+        // Aguarda todas as threads finalizarem
+        for (Thread t : threads) {
+            try {
+                t.join();
+                System.out.println(t.getQuantFrames());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return videoDTO.getVideoPosCorrecaoBorroes();
     }
 
 

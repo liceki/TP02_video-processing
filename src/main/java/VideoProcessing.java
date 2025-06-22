@@ -64,9 +64,7 @@ public class VideoProcessing {
         return cuboPixels;
     }
 
-    public static void gravarVideo(byte video[][][],
-                                   String caminho,
-                                   double fps) {
+    public static void gravarVideo(byte video[][][], String caminho, double fps) {
 
         int qFrames = video.length;
         int altura = video[0].length;
@@ -100,13 +98,13 @@ public class VideoProcessing {
 
 
     public static void main(String[] args) {
-        byte[][][] videoProcessado = null;
+        // Vendo o tamanho da heap que a JVM alocou, só pra ter uma ideia do consumo de memória
         System.out.println("Heap inicial (Xms): " + Runtime.getRuntime().totalMemory() / (1024 * 1024) + " MB");
         System.out.println("Heap máximo  (Xmx): " + Runtime.getRuntime().maxMemory() / (1024 * 1024) + " MB");
 
         String caminhoVideo = "src/main/videos/video-cortado.mp4";
-        String caminhoGravar = "src/main/videos/video-pos.mp4";
-        double fps = 24.0; //isso deve mudar se for outro vídeo (avaliar metadados ???)
+        String caminhoGravar = "src/main/videos/video-pos-borrao.mp4";
+        double fps = 24.0;
 
         System.out.println("Carregando o vídeo do diretório: " + caminhoVideo);
         byte video[][][] = carregarVideo(caminhoVideo);
@@ -114,95 +112,122 @@ public class VideoProcessing {
         System.out.printf("Nº de Frames: %d   Resolução: %d x %d \n",
                 video.length, video[0][0].length, video[0].length);
 
-        System.out.println("\nIniciando Processamento!");
-        byte[][][] videoPosSalPimenta = new byte[video.length][video[0].length][video[0][0].length];
-        byte[][][] videoPosRemoverBorroes = new byte[video.length][video[0].length][video[0][0].length];
 
-        for (int numThreads = 1; numThreads <= 32 ; numThreads*=2) {
+        byte[][][] videoProcessado = null;
+        // Definindo os parâmetros dos filtros -> 'final' pra garantir que ninguém mude sem querer
+        final int tamanhoLadoMascara = 3;
+        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIA;
+        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIANA;
+
+        // Usando um DTO pra não passar 500 parâmetros na chamada dos métodos de correção
+        VideoDTO videoDTO = new VideoDTO(video);
+        // Criamos os arrays de resultado aqui fora. Assim a gente passa eles como referência
+        // e as threads os modificam. Evita criar um monte de array gigante dentro do loop.
+        videoDTO.setVideoPosSalPimenta(new byte[video.length][video[0].length][video[0][0].length]);
+        videoDTO.setVideoPosCorrecaoBorroes(new byte[video.length][video[0].length][video[0][0].length]);
+        videoDTO.setTamanhoLadoMascara(tamanhoLadoMascara);
+        videoDTO.setTipoDeCalculoSalPimenta(tipoDeCalculoSalPimenta);
+        videoDTO.setTipoDeCalculoBorrao(tipoDeCalculoBorrao);
+
+
+        System.out.println("\nIniciando Processamento!");
+        // Loop principal pra testar a performance com 1, 2, 4, 8... threads
+        // O numThreads dobra a cada iteracao, fazendo todos os testes requisitados
+        for (int numThreads = 1; numThreads <= 32; numThreads *= 2) {
             System.out.println("Execução com " + numThreads + " thread(s)");
+            // Pega o tempo antes...
             long inicio = System.currentTimeMillis();
-            videoProcessado = processarVideo(video, numThreads, videoPosSalPimenta, videoPosRemoverBorroes);
+            // Chamando a função que faz a magica acontecer
+            videoProcessado = processarVideo(videoDTO, numThreads);
+            // ...e depois, pra gente poder calcular o speedup
             long fim = System.currentTimeMillis();
             System.out.println("Tempo de execução com " + numThreads + " Thread(s): " + (fim - inicio));
             System.out.println("--------------------------\n");
         }
 
-
+        // Se o video estiver nulo, ele nao sera salvo
         if (videoProcessado == null) return;
+
         System.out.println("Salvando...  " + caminhoGravar);
         gravarVideo(videoProcessado, caminhoGravar, fps);
         System.out.println("Término do processamento");
     }
 
 
+    private static byte[][][] processarVideo(VideoDTO videoDTO, int numThreads) {
+        // caso base: execução sequencial (sem criar threads)
+        // -> é o nosso benchmark pra comparar o desempenho
+        if (numThreads == 1) return processarSequencial(videoDTO);
 
-    private static byte[][][] processarVideo(byte[][][] video, int numThreads, byte[][][] videoPosSalPimenta, byte[][][] videoPosRemoverBorroes) {
-        // definindo parametros de processamento
-
-        final int tamanhoLadoMascara = 3;
-        final TipoDeCalculo tipoDeCalculoSalPimenta = TipoDeCalculo.MEDIA;
-        final TipoDeCalculo tipoDeCalculoBorrao = TipoDeCalculo.MEDIA;
-
-        // instanciando objeto com dados comnuns a ambas abordagens (sequencial ou paralela)
-        VideoDTO videoDTO = new VideoDTO(video);
-        videoDTO.setVideoPosSalPimenta(videoPosSalPimenta);
-        videoDTO.setVideoPosCorrecaoBorroes(videoPosRemoverBorroes);
-        videoDTO.setTamanhoLadoMascara(tamanhoLadoMascara);
-        videoDTO.setTipoDeCalculoSalPimenta(tipoDeCalculoSalPimenta);
-        videoDTO.setTipoDeCalculoBorrao(tipoDeCalculoBorrao);
-
-        // Execução sequencial
-        if (numThreads == 1) { //
-            videoDTO.setLimiteInferior(0);
-            videoDTO.setLimiteSuperior(video.length);
-            VideoProcessingMethods.processarVideo(videoDTO);
-            return videoDTO.getVideoPosCorrecaoBorroes();
-        }
+        return processarParalelo(videoDTO, numThreads);
+    }
 
 
-        //Thread: video, indexInicial, indexFinal
-        //Intervalo = numFramesPorThread anterior até numFramesPorThread atual
+    private static byte[][][] processarSequencial(VideoDTO videoDTO) {
+        // Configura o DTO para processar o vídeo inteiro em um único "chunk"
+        // Define o início do processamento no primeiro frame
+        videoDTO.setLimiteInferior(0);
+        // Define o fim do processamento no último frame
+        videoDTO.setLimiteSuperior(videoDTO.getVideoPreProcessamento().length);
+        // Invoca o metodo que contém a logica de aplicação dos filtros
+        VideoProcessingMethods.processarVideo(videoDTO);
 
+        // Retorna a referência para o buffer de vídeo com o resultado final
+        return videoDTO.getVideoPosCorrecaoBorroes();
+    }
+
+
+    private static byte[][][] processarParalelo(VideoDTO videoDTO, int numThreads) {
+        // Exemplo para que utilizamos para elaboraçao da logica de divisao de frames para as threads
         //video[247] 246 indices (do 0 ao 246)
         //247 frames para 4 threads
         //numFramesPorThread = 61
         //Resto = 3
 
+        // Variáveis pra controlar a divisão do trabalho entre as threads.
         Thread thread;
         List<Thread> threads = new ArrayList<>();
-        int numFramesPorThread = video.length / numThreads,
-                resto = video.length % numThreads,
+        int numFramesPorThread = videoDTO.getVideoPreProcessamento().length / numThreads,
+                resto = videoDTO.getVideoPreProcessamento().length % numThreads,
                 limiteInferior = 0,
                 limiteSuperior,
                 numFramesAlocados;
 
 
-        // loop que repassa as listas e informa quais frames deverão ser processados por cada thread
+        // Loop que cria e configura cada thread pra processar um "pedaço" do vídeo.
         for (int i = 0; i < numThreads; i++) {
             numFramesAlocados = numFramesPorThread;
+            // Se a divisão não for exata, distribui o resto dos frames pras primeiras threads.
+            // Cada uma pega um frame a mais até o resto acabar.
             if (resto > 0) {
                 numFramesAlocados++;
                 resto--;
             }
             limiteSuperior = limiteInferior + numFramesAlocados;
 
+            // Cria a thread, passando o DTO com os frames que ela vai processar (do limiteInferior ao Superior).
             thread = new Thread(new VideoDTO(videoDTO, limiteInferior, limiteSuperior));
-            limiteInferior = limiteSuperior; // 62 124 186
+            // Atualiza o limite inferior pra próxima thread já começar do lugar certo.
+            limiteInferior = limiteSuperior;
 
+            // Inicia a thread. Agora ela tá rodando "em paralelo" com a main.
             thread.start();
+            // Guarda a thread na lista para podermos aguardar ela terminar
             threads.add(thread);
         }
 
-        // Aguarda todas as threads finalizarem
+        // esperamos todas as threads finalizarem suas tasks
         for (Thread t : threads) {
             try {
+                // O .join() faz a thread main 'pausar' aqui até a thread 't' terminar.
+                // Sem isso, tentariamos retornar o vídeo antes de ele estar pronto.
                 t.join();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
+        // Agora que todas as threads terminaram, o vídeo de resultado tá completo.
         return videoDTO.getVideoPosCorrecaoBorroes();
     }
-
 
 }

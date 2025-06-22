@@ -116,6 +116,6 @@ A tabela abaixo apresenta os tempos de execução registrados.
 
 ## **Autores**
 
-  * [Antonio Carlos Jr.](https://github.com/antonio-carlosjr)
+  * [Antonio Carlos](https://github.com/antonio-carlosjr)
   * [Henrique Leão](https://github.com/liceki)
   * [Rhuan Azevedo](https://github.com/RhuanAzevedo)

@@ -48,8 +48,8 @@ graph TD
     F --> M[Processamento Concluído]
 
     E -- Não --> G[Caminho Paralelo]
-    G --> H[1. Divide os frames entre as threads]
-    H --> I[2. Cria e inicia N threads com seus chunks]
+    G --> H[1 - Divide os frames entre as threads]
+    H --> I[2 - Cria e inicia N threads com seus chunks]
 
     %% Execução concorrente
     I --> T1[Thread 1: processa chunk 1]
